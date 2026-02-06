@@ -1,0 +1,160 @@
+﻿@{
+    ViewData["Title"] = "File to SQL Upload";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <!-- Upload Card -->
+            <div class="card shadow-lg rounded-4">
+                <div class="card-header bg-primary text-white rounded-top-4">
+                    <h4 class="mb-0"><i class="bi bi-upload"></i> CSV / Excel to SQL Database</h4>
+                </div>
+
+                <div class="card-body">
+                    <form id="uploadForm" enctype="multipart/form-data">
+
+                        <!-- File Input -->
+                        <div class="form-floating mb-3">
+                            <input type="file" class="form-control" id="fileInput" name="file" accept=".csv,.xlsx" required>
+                            <label for="fileInput">Select File (CSV or Excel)</label>
+                        </div>
+
+                        <!-- Table Name -->
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" name="databaseName" id="databaseName" placeholder="" required>
+                            <label for="databaseName">Database Name</label>
+                        </div>
+
+                        <!-- Table Name -->
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" name="tableName" id="tableName" placeholder="" required>
+                            <label for="tableName">Table Name</label>
+                        </div>
+
+                        <!-- Upload Mode -->
+                        <div class="mb-3">
+                            <label class="form-label">Upload Mode</label>
+                            <select class="form-select" name="mode">
+                                <option value="1">Create table and insert data</option>
+                                <option value="2">Insert into existing table</option>
+                            </select>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="button" class="btn btn-outline-secondary" onclick="previewFile()">
+                                <i class="bi bi-eye"></i> Preview File
+                            </button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-database-down"></i> Upload to Database
+                            </button>
+                        </div>
+
+                        <!-- Spinner -->
+                        <div class="mt-3 d-none" id="previewSpinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading preview...</span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Preview Card -->
+            <div class="card mt-4 d-none" id="previewCard">
+                <div class="card-header bg-primary text-white">
+                    <strong>File Preview</strong>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-striped table-bordered table-hover table-lg mb-0" id="previewTable"></table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    async function previewFile() {
+        const form = document.getElementById("uploadForm");
+        const formData = new FormData(form);
+        const spinner = document.getElementById("previewSpinner");
+        spinner.classList.remove("d-none");
+
+        try {
+            const response = await fetch('/api/file-upload/preview', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                alert("Failed to preview file.");
+                spinner.classList.add("d-none");
+                return;
+            }
+
+            const data = await response.json();
+            renderPreview(data);
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred while previewing the file.");
+        } finally {
+            spinner.classList.add("d-none");
+        }
+    }
+
+    function renderPreview(data) {
+        if (!data || !data.columnNames || !data.rows) {
+            alert("Preview data is invalid");
+            console.error("Preview data:", data);
+            return;
+        }
+
+        let table = "<thead><tr>";
+        data.columnNames.forEach(c => table += `<th>${c}</th>`);
+        table += "</tr></thead><tbody>";
+        data.rows.forEach(row => {
+            table += "<tr>";
+            row.forEach(cell => table += `<td>${cell ?? '(empty)'}</td>`);
+            table += "</tr>";
+        });
+        table += "</tbody>";
+
+        document.getElementById("previewTable").innerHTML = table;
+        document.getElementById("previewCard").classList.remove("d-none");
+    }
+</script>
+<script>
+    document.getElementById("uploadForm").addEventListener("submit", async function (e) {
+        e.preventDefault(); // 🚨 STOP page reload
+
+        const formData = new FormData(this);
+
+        try {
+            const response = await fetch('/api/file-upload/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                alert("Upload failed: " + errorText);
+                return;
+            }
+
+            const result = await response.json();
+            alert(result.message ?? "Upload successful!");
+        }
+        catch (err) {
+            console.error(err);
+            alert("An unexpected error occurred during upload.");
+        }
+    });
+</script>
+<!-- Bootstrap Icons CDN -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
